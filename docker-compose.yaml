@@ -1,0 +1,11 @@
+services:
+  ollama-proxy:
+    build: .
+    container_name: ollama_cloud_proxy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
