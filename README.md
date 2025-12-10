@@ -1,6 +1,6 @@
 # 💡 Ollamacloud-Proxy
 本项目旨在开发一个轻量级的 API 转换代理层（API Proxy），核心功能是将客户端发送的 OpenAI 兼容 的 Chat Completion 请求格式无缝地转换为 Ollama Cloud API 所要求的格式，并反向处理 Ollama Cloud 的响应，使其以标准的 OpenAI Server-Sent Events (SSE) 流式格式返回给客户端。
-## 所有代码全部优gemini3-pro完成 ##
+**本人不会编程,所有代码由 Gemini3-pro 交互完成**
 
 # 📌 项目目标与核心价值
 - 实现兼容性与互操作性：
