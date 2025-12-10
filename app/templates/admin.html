@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Admin</title>
+    <title>Admin V4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 p-8 min-h-screen">
-    <div id="app" class="max-w-4xl mx-auto relative">
+    <div id="app" class="max-w-5xl mx-auto relative">
         <div class="fixed bottom-5 right-5 z-50 flex flex-col gap-2">
             <div v-for="t in toasts" :key="t.id" :class="t.type=='error'?'bg-red-500':'bg-green-500'" class="text-white px-6 py-3 rounded shadow" v-text="t.msg"></div>
         </div>
-
+        
         <header class="mb-8 flex justify-between items-center relative z-10">
-            <h1 class="text-2xl font-bold">Ollama Proxy</h1>
+            <h1 class="text-2xl font-bold">Ollama Proxy <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded ml-2">V4 User Isolated</span></h1>
             <div class="relative group">
                 <button class="flex items-center gap-2 font-bold text-blue-600 hover:text-blue-800 py-2">
                     <span v-text="user"></span>
@@ -26,23 +26,64 @@
         </header>
 
         <section class="bg-white p-6 rounded shadow mb-8">
-            <h2 class="font-bold mb-4">服务配置</h2>
-            <input v-model="config.host" class="w-full p-2 border rounded mb-2" placeholder="Ollama URL">
-            <input v-model="config.key" type="password" class="w-full p-2 border rounded mb-2" placeholder="API Key (Optional)">
-            <div class="flex justify-end gap-2">
-                <button @click="testConn" :disabled="loading" class="bg-blue-600 text-white px-4 py-2 rounded" v-text="loading?'检测中...':'测试连接'"></button>
-                <button @click="saveConf" class="bg-slate-800 text-white px-4 py-2 rounded">保存</button>
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                我的上游服务池 (My Upstream Keys)
+                <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded">私有隔离 & 随机轮询</span>
+            </h2>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-gray-700 mb-2">API Host URL (全局共享)</label>
+                <div class="flex gap-2">
+                    <input v-model="config.host" class="flex-1 p-2 border rounded" placeholder="https://ollama.com/api/chat">
+                    <button @click="saveConf" class="bg-slate-800 text-white px-4 py-2 rounded">保存 Host</button>
+                </div>
             </div>
-            <div v-if="models.length" class="mt-4 p-4 bg-green-50 rounded text-sm text-green-800">
-                <p class="font-bold mb-2">可用模型:</p>
-                <span v-for="m in models" class="mr-2 mb-2 inline-block bg-white border px-2 py-1 rounded" v-text="m"></span>
+
+            <div class="border-t pt-4">
+                <label class="block text-sm font-bold text-gray-700 mb-2">添加上游账号 (仅供我使用)</label>
+                <div class="flex gap-2 mb-4">
+                    <input v-model="newUpRemark" class="w-1/3 p-2 border rounded" placeholder="备注 (如: Account 1)">
+                    <input v-model="newUpKey" class="flex-1 p-2 border rounded" placeholder="Bearer Token (cdbf...)">
+                    <button @click="addUpKey" class="bg-blue-600 text-white px-4 py-2 rounded">添加</button>
+                </div>
+
+                <div class="bg-gray-50 rounded border mb-4">
+                    <div v-for="uk in upKeys" :key="uk.key" class="flex justify-between items-center p-3 border-b last:border-0">
+                        <div>
+                            <span class="font-bold text-sm text-gray-700" v-text="uk.remarks"></span>
+                            <code class="ml-2 text-xs text-gray-500" v-text="uk.key.substring(0, 10) + '...'"></code>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">就绪</span>
+                            <button @click="delUpKey(uk.key)" class="text-red-500 text-sm hover:underline">删除</button>
+                        </div>
+                    </div>
+                    <div v-if="upKeys.length === 0" class="p-4 text-center text-gray-400 text-sm">暂无上游账号，请添加至少一个 Key 以使用服务</div>
+                </div>
+
+                <div class="flex justify-between items-center bg-blue-50 p-3 rounded border border-blue-100">
+                    <div class="text-xs text-blue-600">
+                        * 点击测试将随机使用您的一个 Key 连接 Host 获取模型列表
+                    </div>
+                    <button @click="testConn" :disabled="loading" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition flex items-center gap-2">
+                        <span v-if="loading">连接中...</span>
+                        <span v-else>测试连接 & 刷新模型</span>
+                    </button>
+                </div>
+
+                <div v-if="models.length > 0" class="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <p class="text-sm text-green-800 font-bold mb-3">连接成功！当前 Key 可用模型：</p>
+                    <div class="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                        <span v-for="m in models" :key="m" class="px-2 py-1 bg-white border border-green-300 rounded text-xs text-green-700 font-mono select-all" v-text="m"></span>
+                    </div>
+                </div>
             </div>
         </section>
 
         <section class="bg-white p-6 rounded shadow">
-            <h2 class="font-bold mb-4">API Keys</h2>
+            <h2 class="font-bold mb-4">我的客户端密钥 (Client Keys)</h2>
             <div class="flex gap-2 mb-4">
-                <input v-model="newKey" class="flex-1 p-2 border rounded" placeholder="请输入备注名称 (必填)">
+                <input v-model="newKey" class="flex-1 p-2 border rounded" placeholder="备注名称 (如: Cursor)">
                 <button @click="addKey" class="bg-green-600 text-white px-4 py-2 rounded">生成 Key</button>
             </div>
             <div v-for="k in keys" class="flex justify-between border-b py-2 text-sm">
@@ -57,50 +98,52 @@
     <script>
         const { createApp } = Vue
         createApp({
-            data() {
-                return {
-                    user: "{{ username }}",
-                    config: { host: "{{ ollama_host }}", key: "{{ ollama_key }}" },
-                    keys: {{ keys|tojson }},
-                    newKey: '',
-                    models: [],
-                    loading: false,
-                    toasts: []
-                }
+            data() { 
+                return { 
+                    user: "{{ username }}", 
+                    config: { host: "{{ ollama_host }}" }, 
+                    upKeys: {{ upstream_keys|tojson }},
+                    keys: {{ keys|tojson }}, 
+                    newKey: '', newUpKey: '', newUpRemark: '',
+                    models: [], // 存储模型列表
+                    loading: false, toasts: [] 
+                } 
             },
             methods: {
-                toast(m, t='info') {
-                    const id=Date.now();
-                    this.toasts.push({id, msg:m, type:t});
-                    setTimeout(()=>this.toasts=this.toasts.filter(x=>x.id!==id),3000);
+                toast(m, t='info') { const id=Date.now(); this.toasts.push({id, msg:m, type:t}); setTimeout(()=>this.toasts=this.toasts.filter(x=>x.id!==id),3000); },
+                
+                async saveConf() {
+                    const fd=new FormData(); fd.append('ollama_host', this.config.host);
+                    try { if((await fetch('/admin/config',{method:'POST',body:fd})).ok) this.toast('Host 保存成功','ok'); } catch{ this.toast('保存失败','error'); }
                 },
-                async saveConf(s=false) {
-                    const fd=new FormData(); fd.append('ollama_host', this.config.host); fd.append('ollama_key', this.config.key||'');
-                    try { if((await fetch('/admin/config',{method:'POST',body:fd})).ok && !s) this.toast('保存成功','ok'); } catch{ this.toast('保存失败','error'); }
+                
+                async addUpKey() {
+                    if(!this.newUpKey || !this.newUpRemark) return this.toast('请填写完整','error');
+                    const fd=new FormData(); fd.append('key', this.newUpKey); fd.append('remarks', this.newUpRemark);
+                    if((await fetch('/admin/upstream_keys',{method:'POST',body:fd})).ok) location.reload();
+                    else this.toast('添加失败','error');
                 },
+                async delUpKey(k) { if(confirm('删除此上游账号?')) { await fetch('/admin/upstream_keys?key='+encodeURIComponent(k), {method:'DELETE'}); location.reload(); } },
+                
                 async testConn() {
-                    this.loading=true; this.models=[]; await this.saveConf(true);
+                    this.loading=true; this.models = [];
                     try {
                         const res = await fetch('/api/test-connection', {method:'POST'}); const d=await res.json();
-                        if(res.ok && d.status=='success') { this.toast(d.message,'ok'); this.models=d.models; } else this.toast(d.message||'失败','error');
+                        if(res.ok && d.status=='success') {
+                            this.toast(d.message,'ok');
+                            this.models = d.models || []; // 更新模型列表
+                        } else {
+                            this.toast(d.message||'连接失败','error');
+                        }
                     } catch { this.toast('网络错误','error'); } finally { this.loading=false; }
                 },
+                
                 async addKey() {
-                    // 修复：如果没有输入备注，弹出提示而不是静默失败
-                    if(!this.newKey) {
-                        this.toast('请先输入备注名称！', 'error');
-                        return;
-                    }
+                    if(!this.newKey) return this.toast('请输入备注','error');
                     const fd=new FormData(); fd.append('name', this.newKey);
-                    const res = await fetch('/admin/keys', {method:'POST',body:fd});
-                    if(res.ok) {
-                        this.toast('Key 生成成功', 'ok');
-                        setTimeout(() => location.reload(), 500);
-                    } else {
-                        this.toast('生成失败', 'error');
-                    }
+                    if((await fetch('/admin/keys', {method:'POST',body:fd})).ok) location.reload();
                 },
-                async delKey(k) { if(confirm('删除?')) { await fetch('/admin/keys/'+k, {method:'DELETE'}); location.reload(); } },
+                async delKey(k) { if(confirm('撤销?')) { await fetch('/admin/keys/'+k, {method:'DELETE'}); location.reload(); } },
                 copy(t) { navigator.clipboard.writeText(t); this.toast('已复制'); }
             }
         }).mount('#app')
