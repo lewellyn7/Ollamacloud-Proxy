@@ -7,8 +7,6 @@
 # 💡 Ollamacloud-Proxy
 本项目旨在开发一个轻量级的 API 转换代理层（API Proxy），核心功能是将客户端发送的 OpenAI 兼容 的 Chat Completion 请求格式无缝地转换为 Ollama Cloud API 所要求的格式，并反向处理 Ollama Cloud 的响应，使其以标准的 OpenAI Server-Sent Events (SSE) 流式格式返回给客户端。
 
-
-
 # 📌 项目目标与核心价值
 - 实现兼容性与互操作性：
 
@@ -32,7 +30,7 @@
 
 - 企业内部开发： 在不改动核心应用代码的前提下，利用 Ollama Cloud 提供的模型（如 gpt-oss:120b-cloud）替换现有 OpenAI 调用。
 
-- 平台集成： 作为智慧园区或智慧城市平台的一个微服务网关，统一对外提供符合行业标准的 AI 接口。
+- 平台集成： 作为一个微服务网关，统一对外提供符合行业标准的 AI 接口。
 
 
 # 部署方式
