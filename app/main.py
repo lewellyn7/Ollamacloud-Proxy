@@ -13,7 +13,16 @@ from pydantic import BaseModel
 from typing import List, Optional
 import app.database as db
 
-app = FastAPI(title="Ollama Cloud Proxy", version="1.7.0")
+app = FastAPI(title="Ollama Cloud Proxy", version="1.9.0")
+
+# --- Middleware: Fix Double Slash ---
+@app.middleware("http")
+async def fix_double_slash(request: Request, call_next):
+    if request.scope["path"].startswith("//"):
+        request.scope["path"] = request.scope["path"].replace("//", "/", 1)
+    response = await call_next(request)
+    return response
+
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -52,7 +61,7 @@ class ChatCompletionRequest(BaseModel):
     stream: Optional[bool] = False
     temperature: Optional[float] = 0.7
 
-# --- HTML 页面路由 ---
+# --- HTML Routes ---
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
@@ -142,15 +151,14 @@ async def test_conn(_: str = Depends(get_current_user)):
         async with httpx.AsyncClient(timeout=8.0, verify=False) as client:
             resp = await client.get(target, headers=headers)
             if resp.status_code == 200:
-                try:
+                try: 
                     models = [m.get("name") for m in resp.json().get("models", [])]
                     return JSONResponse({"status": "success", "message": f"成功! {len(models)}模型", "models": models})
                 except: return JSONResponse(502, {"status": "error", "message": "JSON Error"})
             return JSONResponse(resp.status_code, {"status": "error", "message": f"HTTP {resp.status_code}"})
     except Exception as e: return JSONResponse(500, {"status": "error", "message": str(e)})
 
-# --- OpenAI API (核心逻辑) ---
-# 提取为独立函数，供多个路由复用
+# --- OpenAI Logic ---
 async def _list_models_logic():
     ollama_host = db.get_config("ollama_host")
     ollama_key = db.get_config("ollama_key")
@@ -172,49 +180,75 @@ async def _chat_logic(req: ChatCompletionRequest, key: str):
     ollama_host = db.get_config("ollama_host")
     ollama_key = db.get_config("ollama_key")
     if not ollama_host: raise HTTPException(500, "Config missing")
+    
     payload = {"model": req.model, "messages": [{"role": m.role, "content": m.content} for m in req.messages], "stream": req.stream, "options": {"temperature": req.temperature}}
     headers = {"Content-Type": "application/json"}
     if ollama_key: headers["Authorization"] = f"Bearer {ollama_key}"
     client = httpx.AsyncClient(timeout=120, verify=False)
-
-    if req.stream:
-        async def stream_gen():
-            try:
-                async with client.stream("POST", ollama_host, json=payload, headers=headers) as r:
-                    async for line in r.aiter_lines():
-                        if not line: continue
-                        try:
-                            d = json.loads(line)
-                            if d.get("done"): yield "data: [DONE]\n\n"; break
-                            c = d.get("message", {}).get("content", "")
-                            yield f"data: {json.dumps({'id':'chatcmpl-1','object':'chat.completion.chunk','created':int(time.time()),'model':req.model,'choices':[{'index':0,'delta':{'content':c},'finish_reason':None}]})}\n\n"
-                        except: pass
-            finally: await client.aclose()
-        return StreamingResponse(stream_gen(), media_type="text/event-stream")
-    else:
-        resp = await client.post(ollama_host, json=payload, headers=headers)
+    
+    try:
+        if req.stream:
+            async def stream_gen():
+                try:
+                    async with client.stream("POST", ollama_host, json=payload, headers=headers) as r:
+                        async for line in r.aiter_lines():
+                            if not line: continue
+                            try:
+                                d = json.loads(line)
+                                if d.get("done"): yield "data: [DONE]\n\n"; break
+                                c = d.get("message", {}).get("content", "")
+                                yield f"data: {json.dumps({'id':'chatcmpl-1','object':'chat.completion.chunk','created':int(time.time()),'model':req.model,'choices':[{'index':0,'delta':{'content':c},'finish_reason':None}]})}\n\n"
+                            except: pass
+                finally: await client.aclose()
+            return StreamingResponse(stream_gen(), media_type="text/event-stream")
+        else:
+            # --- 关键修复：非流式请求的格式转换 ---
+            resp = await client.post(ollama_host, json=payload, headers=headers)
+            await client.aclose()
+            
+            if resp.status_code != 200:
+                return JSONResponse(status_code=resp.status_code, content=resp.json())
+            
+            # 解析 Ollama 响应
+            ollama_data = resp.json()
+            content = ollama_data.get("message", {}).get("content", "")
+            
+            # 构造标准的 OpenAI 响应
+            openai_resp = {
+                "id": f"chatcmpl-{uuid.uuid4()}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": req.model,
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": content
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": ollama_data.get("prompt_eval_count", 0),
+                    "completion_tokens": ollama_data.get("eval_count", 0),
+                    "total_tokens": ollama_data.get("prompt_eval_count", 0) + ollama_data.get("eval_count", 0)
+                }
+            }
+            return openai_resp
+            
+    except Exception as e:
         await client.aclose()
-        return resp.json()
+        print(f"DEBUG: Error in chat logic: {e}")
+        raise HTTPException(500, str(e))
 
-# --- 路由绑定 (关键修改：同时支持 /v1/xxx 和 /xxx) ---
-
-# 1. 标准 OpenAI 路由
+# --- Routes ---
 @app.get("/v1/models")
-async def list_models_v1():
-    return await _list_models_logic()
+async def list_models_v1(): return await _list_models_logic()
 
 @app.post("/v1/chat/completions")
-async def chat_completions_v1(req: ChatCompletionRequest, key: str = Depends(verify_client_key)):
-    return await _chat_logic(req, key)
+async def chat_completions_v1(req: ChatCompletionRequest, key: str = Depends(verify_client_key)): return await _chat_logic(req, key)
 
-# 2. 兼容路由 (防止用户忘记写 /v1)
 @app.get("/models")
-async def list_models_root():
-    return await _list_models_logic()
+async def list_models_root(): return await _list_models_logic()
 
 @app.post("/chat/completions")
-async def chat_completions_root(req: ChatCompletionRequest, key: str = Depends(verify_client_key)):
-    return await _chat_logic(req, key)
-
-# 3. 根目录兼容 (有些客户端会直接请求 /v1/chat/completions，但有些会拼接到根)
-# 由于根目录 "/" 已经是 Admin 页面了，这里不建议改动，否则无法访问后台
+async def chat_completions_root(req: ChatCompletionRequest, key: str = Depends(verify_client_key)): return await _chat_logic(req, key)
