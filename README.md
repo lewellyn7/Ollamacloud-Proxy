@@ -39,51 +39,60 @@
 
 - 安装 docker,docker官方安装命令:
 
-'''
+```
 wget -qO- https://get.docker.com/ | sh
-'''
+```
 
 - 拉取项目
 
-'''
+```
 git clone https://github.com/lewellyn7/Ollamacloud-Proxy.git
-'''
+```
+
  国内用户用如下命令
-'''
+ 
+```
 git clone https://raw.githubusercontent.com/lewellyn7/Ollamacloud-Proxy.git
-'''
+```
+
 或者
-'''
+
+```
 git clone https://raw.gitmirror.com/lewellyn7/Ollamacloud-Proxy.git
-'''
+```
 
 - 进入项目文件夹
-'''
+- 
+```
  cd  Ollamacloud-Proxy
-'''
+```
 
 - docker compose 部署
-···
+- 
+```
 docker compose up -d --build
-···
+```
 
 - 访问
 
 - 默认用户名及密码均为'admin'，请登录后及时修改
-···
+- 
+```
 admin
-···
+```
 
 # ollama api获取
 
 - 访问ollama官网：右上角sign in，用google 或 github 账户登录，或者按流程注册账户
-'''
+- 
+```
 https://ollama.com/
-'''
+```
 
 - 获取ollama cloud 的api：访问key地址
-'''
+- 
+```
 https://ollama.com/settings/keys
-'''
+```
 点击 **Add API Key** 按钮 获取新的 api key，并保存
 
