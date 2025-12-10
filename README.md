@@ -1,8 +1,8 @@
-**本人不会编程,所有代码由 Gemini3-pro 交互完成**
+**本人不会编程,所有代码是与 Gemini3-pro 交互完成**
 
-**ollama开放了cloud api，普通用户可以免费使用ollama提供的大语言模型,大多数第三方llama平台支持openai api,而ollama cloud的api无法直接与其他平台直接进行对接**
+因ollama开放了cloud api，普通用户可以免费使用ollama提供的cloud端大语言模型,但大多数第三方llama平台仅支持openai api。ollama cloud的api却难以直接与其他平台直接进行对接
 
-**为白嫖ollama的cloud api,固此项目诞生。**
+**为解决能白嫖ollama cloud api,固此项目诞生。**
 
 # 💡 Ollamacloud-Proxy
 本项目旨在开发一个轻量级的 API 转换代理层（API Proxy），核心功能是将客户端发送的 OpenAI 兼容 的 Chat Completion 请求格式无缝地转换为 Ollama Cloud API 所要求的格式，并反向处理 Ollama Cloud 的响应，使其以标准的 OpenAI Server-Sent Events (SSE) 流式格式返回给客户端。
