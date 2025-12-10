@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head><title>注册</title><script src="https://cdn.tailwindcss.com"></script><script src="https://unpkg.com/vue@3/dist/vue.global.js"></script></head>
+<body class="bg-slate-100 h-screen flex items-center justify-center">
+    <div id="app" class="w-full max-w-md bg-white rounded shadow p-8">
+        <h1 class="text-2xl font-bold text-center mb-6">注册新用户</h1>
+        <form @submit.prevent="register">
+            <input type="text" v-model="username" class="mb-4 w-full p-2 border rounded" placeholder="用户名" required>
+            <input type="email" v-model="email" class="mb-4 w-full p-2 border rounded" placeholder="邮箱" required>
+            <input type="password" v-model="password" class="mb-4 w-full p-2 border rounded" placeholder="密码 (至少6位)" required>
+            <div v-if="msg" :class="isError?'text-red-600 bg-red-100':'text-green-600 bg-green-100'" class="mb-4 p-2 rounded text-center text-sm" v-text="msg"></div>
+            <button type="submit" :disabled="loading" class="w-full bg-green-600 text-white font-bold py-2 rounded">注册</button>
+        </form>
+        <div class="mt-4 text-center"><a href="/login" class="text-blue-500 text-sm">已有账号? 登录</a></div>
+    </div>
+    <script>
+        Vue.createApp({
+            data() { return { username: '', email: '', password: '', msg: '', isError: false, loading: false } },
+            methods: {
+                async register() {
+                    this.loading = true; this.msg = '';
+                    const fd = new FormData(); fd.append('username', this.username); fd.append('password', this.password); fd.append('email', this.email);
+                    try {
+                        const res = await fetch('/register', { method: 'POST', body: fd });
+                        const data = await res.json();
+                        this.isError = data.status !== 'success'; this.msg = data.message;
+                        if (!this.isError) setTimeout(() => location.href = '/login', 1500);
+                    } catch { this.isError = true; this.msg = '网络错误'; } finally { this.loading = false; }
+                }
+            }
+        }).mount('#app')
+    </script>
+</body></html>
