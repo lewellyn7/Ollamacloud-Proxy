@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 import app.database as db
 
-app = FastAPI(title="Ollama Cloud Proxy", version="2.0.1")
+app = FastAPI(title="Ollama Cloud Proxy", version="2.0.2")
 
 @app.middleware("http")
 async def fix_double_slash(request: Request, call_next):
@@ -76,14 +76,15 @@ async def login_page(request: Request): return templates.TemplateResponse("login
 @app.post("/login")
 async def login_action(request: Request, response: Response, username: str = Form(...), password: str = Form(...)):
     client_ip = get_client_ip(request)
-    if db.is_ip_blocked(client_ip): return JSONResponse(403, {"status": "error", "message": "您的IP已被封锁"})
+    if db.is_ip_blocked(client_ip): 
+        return JSONResponse(status_code=403, content={"status": "error", "message": "您的IP已被封锁"})
     success, msg = db.verify_login_security(username, password, client_ip)
     if success:
         token = db.create_session(username)
         response = JSONResponse({"status": "success"})
         response.set_cookie(key=SESSION_COOKIE_NAME, value=token, max_age=2592000, httponly=True)
         return response
-    return JSONResponse(401, {"status": "error", "message": msg})
+    return JSONResponse(status_code=401, content={"status": "error", "message": msg})
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request): return templates.TemplateResponse("register.html", {"request": request})
@@ -91,11 +92,13 @@ async def register_page(request: Request): return templates.TemplateResponse("re
 @app.post("/register")
 async def register_action(request: Request, username: str = Form(...), password: str = Form(...), email: str = Form(...)):
     client_ip = get_client_ip(request)
-    if not db.check_registration_limit(client_ip): return JSONResponse(403, {"status": "error", "message": "IP注册达限"})
-    if len(password) < 6: return JSONResponse(400, {"status": "error", "message": "密码太短"})
+    if not db.check_registration_limit(client_ip): 
+        return JSONResponse(status_code=403, content={"status": "error", "message": "IP注册达限"})
+    if len(password) < 6: 
+        return JSONResponse(status_code=400, content={"status": "error", "message": "密码太短"})
     success, msg = db.create_user(username, password, email, client_ip)
     if success: return JSONResponse({"status": "success", "message": "注册成功"})
-    return JSONResponse(400, {"status": "error", "message": msg})
+    return JSONResponse(status_code=400, content={"status": "error", "message": msg})
 
 @app.get("/logout")
 async def logout_action(response: Response, request: Request):
@@ -113,10 +116,11 @@ async def profile_page(request: Request):
 
 @app.post("/api/change-password")
 async def change_pwd_api(old_password: str = Form(...), new_password: str = Form(...), user: str = Depends(get_current_user)):
-    if len(new_password) < 6: return JSONResponse(400, {"status": "error", "message": "新密码太短"})
+    if len(new_password) < 6: 
+        return JSONResponse(status_code=400, content={"status": "error", "message": "新密码太短"})
     success, msg = db.change_user_password(user, old_password, new_password)
     if success: return JSONResponse({"status": "success", "message": msg})
-    return JSONResponse(400, {"status": "error", "message": msg})
+    return JSONResponse(status_code=400, content={"status": "error", "message": msg})
 
 @app.get("/", response_class=HTMLResponse)
 async def admin_page(request: Request):
@@ -135,7 +139,8 @@ async def update_config(ollama_host: str = Form(...), _: str = Depends(get_curre
 @app.post("/admin/upstream_keys")
 async def add_upstream(key: str = Form(...), remarks: str = Form(...), user: str = Depends(get_current_user)):
     if db.add_upstream_key(key, remarks, user): return JSONResponse({"status": "success"})
-    return JSONResponse(400, {"status": "error", "message": "添加失败"})
+    # [修复] 显式指定 status_code 参数
+    return JSONResponse(status_code=400, content={"status": "error", "message": "添加失败"})
 
 @app.delete("/admin/upstream_keys")
 async def del_upstream(key: str, user: str = Depends(get_current_user)):
@@ -146,7 +151,7 @@ async def del_upstream(key: str, user: str = Depends(get_current_user)):
 async def generate_key(name: str = Form(...), user: str = Depends(get_current_user)):
     new_key = f"sk-prox-{secrets.token_urlsafe(24)}"
     if db.create_api_key(new_key, name, user): return JSONResponse({"status": "success", "key": new_key})
-    return JSONResponse(400, {"status": "error"})
+    return JSONResponse(status_code=400, content={"status": "error"})
 
 @app.delete("/admin/keys/{key}")
 async def remove_key(key: str, user: str = Depends(get_current_user)):
@@ -160,14 +165,14 @@ async def _get_user_key_pool(user_id: str):
     if not keys: return [{"key": None}]
     return keys
 
-# [V4 修复] 列表模型逻辑 (带 UserID 支持)
+# 列表模型逻辑
 async def _list_models_logic(user_id: Optional[str] = None):
     ollama_host = db.get_config("ollama_host")
     fallback = [{"id": "gpt-3.5-turbo", "object": "model", "created": 0, "owned_by": "openai"}]
     
     keys = []
     if user_id: keys = await _get_user_key_pool(user_id)
-    else: keys = [{"key": db.get_config("ollama_key")}] # 兼容未登录
+    else: keys = [{"key": db.get_config("ollama_key")}] # 兼容
 
     target = ollama_host.replace("/api/chat", "/api/tags")
     
@@ -184,18 +189,16 @@ async def _list_models_logic(user_id: Optional[str] = None):
         except: pass
     return {"object": "list", "data": fallback}
 
-# [V4 修复] 测试接口：真正调用列表逻辑
 @app.post("/api/test-connection")
 async def test_conn(user: str = Depends(get_current_user)):
     res = await _list_models_logic(user)
     data = res.get("data", [])
-    # 过滤掉 fallback 的 gpt-3.5
     models = [m["id"] for m in data if m.get("owned_by") == "ollama"]
     
     if models:
         return JSONResponse({"status": "success", "message": f"连接成功! 发现 {len(models)} 个可用模型", "models": models})
     else:
-        return JSONResponse(500, {"status": "error", "message": "连接失败或无可用模型。请检查 Host 和 Upstream Key。"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": "连接失败或无可用模型"})
 
 async def _chat_logic(req: ChatCompletionRequest, user_id: str):
     ollama_host = db.get_config("ollama_host")
@@ -233,7 +236,7 @@ async def _chat_logic(req: ChatCompletionRequest, user_id: str):
                 await client.aclose()
                 
                 if resp.status_code in [401, 403]: continue
-                if resp.status_code != 200: return JSONResponse(resp.status_code, resp.json())
+                if resp.status_code != 200: return JSONResponse(status_code=resp.status_code, content=resp.json())
                 
                 ollama_data = resp.json()
                 content = ollama_data.get("message", {}).get("content", "")
