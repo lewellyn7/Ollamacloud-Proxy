@@ -41,7 +41,7 @@
 
 - 非流式响应适配：自动聚合 Ollama 的响应内容，解决第三方软件报 Reading '0' 或 undefined 的格式错误。
 
-- 路径智能兼容：同时支持带 /v1 前缀（.../v1/chat/completions）和不带前缀（.../chat/completions）的请求，并未第三方客户端常见的双斜杠（//v1）错误提供自动修复中间件。
+- 路径智能兼容：同时支持带 /v1 前缀（.../v1/chat/completions）和不带前缀（.../chat/completions）的请求。
 
 ## 2. 多租户与隔离系统 (Multi-Tenancy & Isolation)
 - 多用户注册/登录：支持新用户注册（含邮箱、密码），支持用户登录鉴权（Cookie/Session 管理）。
