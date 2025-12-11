@@ -7,6 +7,30 @@
 # 💡 Ollamacloud-Proxy
 本项目旨在开发一个轻量级的 API 转换代理层（API Proxy），核心功能是将客户端发送的 OpenAI 兼容 的 Chat Completion 请求格式无缝地转换为 Ollama Cloud API 所要求的格式，并反向处理 Ollama Cloud 的响应，使其以标准的 OpenAI Server-Sent Events (SSE) 流式格式返回给客户端。
 
+ollama cloud支持的模型：
+
+  `cogito-2.1:671b`
+  `glm-4.6`
+  `kimi-k2:1t`
+  `kimi-k2-thinking`
+  `qwen3-coder:480b`
+  `qwen3-next:80b`
+  `deepseek-v3.2`
+  `deepseek-v3.1:671b`
+  `gpt-oss:120b`
+  `gpt-oss:20b`
+  `qwen3-vl:235b-instruct`
+  `qwen3-vl:235b`
+  `minimax-m2`
+  `ministral-3:3b`
+  `ministral-3:8b`
+  `ministral-3:14b`
+  `mistral-large-3:675b`
+  `gemini-3-pro-preview`
+  `gemma3:4b`
+  `gemma3:12b`
+  `gemma3:27b`
+
 # 📌 项目目标与核心价值
 - 实现兼容性与互操作性：
 
