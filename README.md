@@ -190,3 +190,33 @@ https://ollama.com/settings/keys
 
 点击 **Add API Key** 按钮 获取新的 api key，并保存
 
+# nginx反向代理设置
+
+```nginx
+
+server {
+    listen 443 ssl;
+    server_name proxy.lewellyn.***.kg;
+
+    # SSL 配置略...
+
+    location / {
+        proxy_pass http://127.0.0.1:8000; # 指向你的 Docker 容器端口
+        
+        # 必须设置：关闭缓冲，否则流式输出会卡顿或报错
+        proxy_buffering off;
+        
+        # 传递必要的头信息
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 支持长连接和 WebSocket (SSE 需要)
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_read_timeout 3600s; # 防止长对话断开
+    }
+}
+```
+
