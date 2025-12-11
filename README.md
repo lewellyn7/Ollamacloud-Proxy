@@ -211,6 +211,6 @@ https://ollama.com/settings/keys
         proxy_set_header Connection "";
         proxy_read_timeout 3600s; # 防止长对话断开
     }
-}
+
 ```
 
