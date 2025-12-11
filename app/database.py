@@ -1,4 +1,3 @@
-cat > app/database.py << 'EOF'
 import sqlite3
 import hashlib
 import uuid
