@@ -194,12 +194,6 @@ https://ollama.com/settings/keys
 
 ```nginx
 
-server {
-    listen 443 ssl;
-    server_name proxy.lewellyn.***.kg;
-
-    # SSL 配置略...
-
     location / {
         proxy_pass http://127.0.0.1:8000; # 指向你的 Docker 容器端口
         
